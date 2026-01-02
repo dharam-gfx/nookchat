@@ -20,13 +20,13 @@ const nextConfig: NextConfig = {
     return [{
       source: '/api/:path*',
       destination: process.env.NODE_ENV === 'production'
-        ? process.env.SERVER_URL || 'https://nookchat-production.up.railway.app/api/:path*'
+        ? process.env.SERVER_URL || 'https://nookchat.onrender.com/api/:path*'
         : 'http://localhost:5000/api/:path*',
     },
     {
       source: '/socket.io/:path*',
       destination: process.env.NODE_ENV === 'production'
-        ? 'https://nookchat-production.up.railway.app/socket.io/:path*'
+        ? 'https://nookchat.onrender.com/socket.io/:path*'
         : 'http://localhost:5000/socket.io/:path*',
     }
     ];
