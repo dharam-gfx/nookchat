@@ -30,6 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# pnpm lockfile (project uses npm)
+pnpm-lock.yaml
+
 # env files (can opt-in for committing if needed)
 .env*
 
