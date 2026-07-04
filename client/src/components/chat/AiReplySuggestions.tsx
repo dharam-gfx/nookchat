@@ -94,15 +94,14 @@ export const AiReplySuggestions: React.FC<AiReplySuggestionsProps> = ( {
             e.preventDefault();
             onSelectSuggestion( suggestion );
         }
-    }; if ( !visible ) return null;
+    };     if ( !visible ) return null;
 
     return (
-        <div className="w-full py-1 px-2 mb-2 shadow-sm rounded-full bg-gradient-to-r from-rose-50 to-zinc-50 dark:from-zinc-900 dark:to-zinc-900/80 backdrop-blur-sm relative">        {/* Development indicator - only visible in development mode */}
-
-            <div className="absolute -top-5 left-2 text-xs px-2 py-0.5 rounded-md flex items-center">
-                <span className="mr-1 flex items-center justify-center w-5 h-5 rounded-full bg-zinc-200 dark:bg-zinc-700">
-                    🤖
-                </span>
+        <div className="w-full py-1 px-2 mb-2 shadow-sm rounded-full bg-gradient-to-r from-rose-50 to-zinc-50 dark:from-zinc-900 dark:to-zinc-900/80 backdrop-blur-sm relative">
+            {/* Privacy notice tooltip */}
+            <div className="absolute -top-5 left-0 text-[10px] px-2 py-0.5 rounded-md flex items-center opacity-70">
+                <span className="mr-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-zinc-200 dark:bg-zinc-700">🤖</span>
+                <span className="text-zinc-400 dark:text-zinc-500">AI — message sent to Google Gemini</span>
             </div>
 
             {/* Close button */}

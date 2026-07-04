@@ -4,20 +4,20 @@
 
 ## Overview
 
-NookChat is a secure and anonymous chat application enabling one-time, end-to-end encrypted conversations. With a focus on privacy, NookChat requires no login and leaves no traces, offering users a cozy digital nook for private communication.
+NookChat is an anonymous chat application with client-side message encryption (AES-256). Conversations are ephemeral — messages are not persisted on the server after sessions end. The app does not claim true end-to-end encryption (there is no key exchange protocol; see [Security](#security)).
 
 ![NookChat User Interface](./client/public/homeUI-image.png)
 
 ## ✨ Features
 
-- **🔒 End-to-End Encryption**: All messages are encrypted using AES-256 via CryptoJS
+- **🔒 Client-Side Encryption**: Messages are encrypted with AES-256 before leaving the browser (see [Security](#security))
 - **👤 No Account Required**: Start chatting instantly without registration
-- **⏳ Ephemeral Conversations**: Messages disappear after the chat session ends
-- **📎 File Sharing**: Securely share images and files with supported formats
+- **⏳ Ephemeral Conversations**: Messages are stored in memory on the server and lost after sessions end
+- **📎 File Sharing**: Share images and files with supported formats
 - **😊 Emoji Support**: Express yourself with a full emoji picker and skin tone selection
 - **🌓 Dark/Light Mode**: Choose your preferred visual theme with system detection
 - **🔔 Sound Notifications**: Customizable audio alerts with volume control
-- **🤖 AI Reply Suggestions**: Smart response suggestions powered by Gemini AI
+- **🤖 AI Reply Suggestions**: Smart response suggestions powered by Gemini AI (message content is sent to Google's servers — requires explicit opt-in per message)
 - **🧵 Reply Threading**: Reply to specific messages in conversations
 - **⌨️ Real-Time Typing Indicators**: See when others are typing
 - **📱 Mobile Responsive**: Works seamlessly across all devices with touch support
@@ -121,8 +121,9 @@ NEXT_PUBLIC_SERVER_URL=your_server_url
 # API URL - optional external API URL if different from SERVER_URL
 NEXT_PUBLIC_API_URL=your_api_url
 
-# Encryption key for chat messages (32 bytes = 256 bits)
-NEXT_PUBLIC_ENCRYPTION_KEY=your_encryption_key
+# No encryption key needed — keys are generated per session in the browser.
+# The app uses per-session AES-256; there is no key exchange protocol.
+# See Security section for details.
 
 # Google Gemini API key for AI features
 GEMINI_API_KEY=your_gemini_api_key
@@ -213,7 +214,7 @@ SERVER_URL=https://your-production-server-url
 
 1. **Create a Chat Room**: From the homepage, click "Start a New Chat"
 2. **Share the Link**: Copy the unique chat room URL and share it with your conversation partner
-3. **Chat Securely**: Enjoy end-to-end encrypted conversation
+3. **Chat**: Messages are encrypted client-side with AES-256 per-session keys
 4. **File Sharing**: Use the attachment button to share images and files
 5. **Customize Experience**: Toggle sound notifications and theme preferences
 
@@ -265,15 +266,22 @@ SERVER_URL=https://your-production-server-url
 - **ID Generation**: nanoid for URL-safe unique identifiers
 - **Rate Limiting**: Express rate-limiter for API protection
 
-## Security Features
+## Security
 
-- **End-to-End Encryption**: All messages encrypted using CryptoJS AES-256
-- **Key Management**: Multiple encryption key fallback strategies
-- **No Message Storage**: Messages never persist on the server
-- **Ephemeral Chat Sessions**: Chat history disappears after sessions end
+> [!CAUTION]
+> NookChat uses **client-side AES-256 encryption with per-session keys**. This is **NOT true end-to-end encryption**. There is no key exchange protocol (no X25519 Diffie-Hellman). Two users in the same chat will each generate a different random key, meaning they cannot decrypt each other's messages unless the key is shared out-of-band. The encryption mainly protects data at rest on the server from casual access.
+
+- **Client-Side Encryption**: Messages are encrypted with AES-256 before leaving the browser using a per-session key stored in `sessionStorage`
+- **No Key Exchange**: This is not Signal. There is no Diffie-Hellman key agreement. Both participants need to share the same key for mutual decryption
+- **No Message Persistence**: Messages are held in server memory and lost when the last user leaves
 - **HTTP Security Headers**: Comprehensive headers including HSTS and CSP
 - **Rate Limiting**: Protection against abuse through API rate limiting
 - **No User Tracking**: No collection of personal data or chat content
+
+### AI Features & Privacy
+
+> [!WARNING]
+> The AI reply suggestion and text rewrite features send **decrypted message content** to Google's Gemini API servers for processing. This means your message text leaves NookChat's control temporarily during AI feature use. These features are disabled by default and require explicit per-message opt-in.
 
 ## AI Features
 

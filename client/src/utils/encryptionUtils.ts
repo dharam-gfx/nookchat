@@ -9,31 +9,21 @@ const generateSecureKey = (): string => {
 };
 
 /**
- * Get encryption key with fallback strategy:
- * 1. Use environment variable if set
- * 2. Use session storage if available
- * 3. Generate new secure key as last resort
+ * Get encryption key from session storage, or generate a new one.
+ * Keys are per-session and never shared between users — this is NOT true
+ * end-to-end encryption (no key exchange protocol). Both parties must
+ * independently share the same key out-of-band for messages to be decrypted.
+ * ponytail: per-session symmetric AES, not E2E. Replace with X25519 + AEAD
+ * if actual E2E is required.
  */
 const getEncryptionKey = () => {
-    // Check for environment variable first
-    if ( process.env.NEXT_PUBLIC_ENCRYPTION_KEY ) {
-        return process.env.NEXT_PUBLIC_ENCRYPTION_KEY;
-    }
-
-    // Then check session storage
     if ( typeof window !== 'undefined' ) {
-        const sessionKey = sessionStorage.getItem( 'chatEncryptionKey' );
-        if ( sessionKey ) {
-            console.log( 'Using session storage encryption key' );
-            return sessionKey;
-        }
+        const existing = sessionStorage.getItem( 'chatEncryptionKey' );
+        if ( existing ) return existing;
     }
 
-    // Generate new key as last resort
-    console.log( 'Generating new secure encryption key' );
     const newKey = generateSecureKey();
 
-    // Save to session storage if available
     if ( typeof window !== 'undefined' ) {
         sessionStorage.setItem( 'chatEncryptionKey', newKey );
     }
@@ -41,7 +31,7 @@ const getEncryptionKey = () => {
     return newKey;
 };
 
-// Initialize encryption key in session storage if needed
+// Pre-warm a key on load so it's ready before first encrypt call
 if ( typeof window !== 'undefined' && !sessionStorage.getItem( 'chatEncryptionKey' ) ) {
     sessionStorage.setItem( 'chatEncryptionKey', getEncryptionKey() );
 }
@@ -59,8 +49,8 @@ export const encryptMessage = ( message: string ): string => {
         console.log( '✅ Message encrypted successfully' );
         return encrypted;
     } catch ( error ) {
-        console.error( '❌ Encryption failed:', error );
-        return message; // Fallback to unencrypted message in case of error
+        console.error( '❌ Encryption failed — message not sent:', error );
+        return ''; // ponytail: was `return message` — that leaked plaintext on wire
     }
 };
 
@@ -78,13 +68,13 @@ export const decryptMessage = ( encryptedMessage: string ): string => {
 
         if ( !decrypted ) {
             console.warn( '⚠️ Decryption produced empty result' );
-            return encryptedMessage;
+            return '';
         }
 
         console.log( '✅ Message decrypted successfully' );
         return decrypted;
     } catch ( error ) {
         console.error( '❌ Decryption failed:', error );
-        return encryptedMessage; // Return encrypted text if decryption fails
+        return ''; // ponytail: was `return encryptedMessage` — showed garbage in UI
     }
 };

@@ -2,7 +2,7 @@
 
 ## Overview
 
-NookChat employs an end-to-end encryption system to ensure that all messages and images shared between users remain private and secure. This document provides a comprehensive explanation of the encryption architecture, implementation details, and security considerations used throughout the application.
+NookChat uses **client-side AES-256 encryption** with per-session keys. This is **NOT end-to-end encryption** — there is no key exchange protocol (no X25519 Diffie-Hellman). Each browser session generates its own random key stored in `sessionStorage`. Two users in the same chat cannot decrypt each other's messages unless the same key is shared out-of-band. The encryption protects message contents from casual server-side inspection but does not provide the security guarantees of a true E2E system like Signal or WhatsApp.
 
 ## Table of Contents
 
@@ -29,7 +29,10 @@ AES-256 is widely recognized as a secure encryption standard and is used by gove
 
 ## Key Management
 
-NookChat employs a multi-tiered approach to encryption key management:
+> [!CAUTION]
+> This is **not** end-to-end encryption. Keys are per-session and random. There is no mechanism for two users to automatically share a key. For two users to decrypt each other's messages, they must share the same key out-of-band.
+
+NookChat generates a single random AES-256 key per browser session:
 
 ### Key Generation
 
@@ -43,37 +46,26 @@ const generateSecureKey = (): string => {
 
 This creates a cryptographically strong random key with sufficient entropy for AES-256 encryption.
 
-### Key Storage Hierarchy
+### Key Source
 
-Keys are stored with the following priority:
+The key is generated once per browser session and stored in `sessionStorage`:
 
-1. **Environment Variable**: The primary source is the `NEXT_PUBLIC_ENCRYPTION_KEY` environment variable
-2. **Session Storage**: If the environment variable is not available, the key is retrieved from session storage
-3. **Fallback Generation**: If neither source has a key, a new one is generated and stored in session storage
+1. **Session Storage**: If a key already exists in `sessionStorage`, reuse it
+2. **Generate**: Otherwise, generate a new 256-bit random key and store it in `sessionStorage`
 
 ```typescript
 const getEncryptionKey = () => {
-    // Check for environment variable first
-    if (process.env.NEXT_PUBLIC_ENCRYPTION_KEY) {
-        return process.env.NEXT_PUBLIC_ENCRYPTION_KEY;
-    }
-
-    // Then check session storage
     if (typeof window !== 'undefined') {
-        const sessionKey = sessionStorage.getItem('chatEncryptionKey');
-        if (sessionKey) {
-            return sessionKey;
-        }
+        const existing = sessionStorage.getItem('chatEncryptionKey');
+        if (existing) return existing;
     }
 
-    // Generate new key as last resort
     const newKey = generateSecureKey();
-    
-    // Save to session storage if available
+
     if (typeof window !== 'undefined') {
         sessionStorage.setItem('chatEncryptionKey', newKey);
     }
-    
+
     return newKey;
 };
 ```
@@ -90,9 +82,11 @@ if (typeof window !== 'undefined' && !sessionStorage.getItem('chatEncryptionKey'
 
 ### Security Considerations
 
-- Using `NEXT_PUBLIC_` prefix makes the key accessible in client-side code, which is a necessary trade-off for client-side encryption
-- Session storage (rather than local storage) is used to limit the key's persistence
+- Keys are unique per browser session, not per user. Refreshing the page generates a new key
+- Session storage (rather than local storage) limits the key's persistence to the tab session
 - The key is never transmitted to the server or stored in cookies
+- Two users in the same chat have **different keys** unless they share the same key out-of-band — which means they generally cannot decrypt each other's messages
+- This is **not** end-to-end encryption. It is client-side encryption with per-session keys
 
 ## Message Encryption
 
@@ -266,46 +260,46 @@ The `EncryptedImage` component implements several fallback strategies:
 
 ### Strengths
 
-1. **Client-Side Encryption**: Messages and images are encrypted before leaving the user's browser
+1. **Client-Side Encryption**: Messages are encrypted before leaving the user's browser
 2. **Strong Algorithm**: AES-256 is a robust, industry-standard encryption algorithm
-3. **End-to-End Approach**: Content is only decrypted on the recipient's device
-4. **Ephemeral Keys**: Session-based keys improve security in case of compromise
+3. **Per-Session Keys**: Keys are generated fresh per session, limiting exposure window
 
 ### Limitations
 
-1. **Browser-Based**: As a web application, NookChat is subject to browser security limitations
-2. **Key Management**: Client-side key management has inherent security challenges
-3. **Performance Trade-offs**: Encryption/decryption adds processing overhead
-4. **Environment Variable Exposure**: Using NEXT_PUBLIC_ prefix exposes the key in client-side code
+1. **Not True End-to-End**: There is no key exchange. Each session generates a unique key, so two users cannot decrypt each other's messages automatically
+2. **Browser-Based**: As a web application, NookChat is subject to browser security limitations
+3. **Key Management**: Client-side key management has inherent security challenges
+4. **AI Features**: The AI suggestion/rewrite features send plaintext message content to Google's Gemini API (server-side, with user opt-in)
 
 ## Error Handling
 
-NookChat employs comprehensive error handling strategies:
+NookChat employs error handling:
 
-1. **Graceful Degradation**: Falls back to less secure options rather than stopping functionality
+1. **Fail Silent**: If encryption or decryption fails, the message is replaced with an empty string to avoid leaking plaintext over the wire
 2. **Detailed Logging**: Console logs provide visibility into encryption/decryption processes
-3. **User Feedback**: Shows appropriate UI elements during encryption/decryption processes
-4. **Automatic Recovery**: Implements automatic retries for transient failures
-5. **Manual Recovery**: Provides retry options for persistent failures
+3. **Automatic Recovery**: Implements automatic retries for transient failures
 
 ## Best Practices
 
-The encryption system follows several security best practices:
+The encryption system follows several security practices:
 
 1. **Secure Key Generation**: Uses cryptographically secure random number generation
 2. **Minimal Key Storage**: Avoids unnecessary persistence of encryption keys
-3. **Error Isolation**: Encryption failures don't cascade to application failures
-4. **Fallback Mechanisms**: Gracefully handles encryption/decryption failures
-5. **Testing**: Includes verification of encryption/decryption pipeline
+3. **No Data Leakage**: Encryption failures produce empty strings, not plaintext
+4. **Testing**: Includes verification of encryption/decryption pipeline
 
 ## Future Enhancements
 
-Potential improvements to consider:
+If true end-to-end encryption is needed, the system should be replaced with:
 
-1. **Per-Chat Keys**: Implement unique encryption keys for each chat room
-2. **Key Rotation**: Regularly update encryption keys for improved security
-3. **Web Crypto API**: Consider migrating to the native Web Crypto API
-4. **Encryption Verification**: Add features to verify encryption integrity
-5. **Perfect Forward Secrecy**: Implement mechanisms to protect past communications
+1. **X25519 Diffie-Hellman Key Exchange**: Enable two users to agree on a shared key without the server knowing it
+2. **Per-Message Keys**: Derive unique keys per message using a ratchet (Signal protocol)
+3. **AEAD Encryption**: Use AES-256-GCM or XChaCha20-Poly1305 for authenticated encryption
+4. **Web Crypto API**: Replace CryptoJS with the native Web Crypto API for better performance and security
+5. **Key Verification**: Add fingerprint comparison (safety numbers) so users can verify keys out-of-band
+6. **Perfect Forward Secrecy**: Implement the Signal double-ratchet protocol
+
+> [!NOTE]
+> For a reference implementation of proper E2E encryption in a chat app, see [safechat](https://github.com/ashev87/safechat).
 
 ---
