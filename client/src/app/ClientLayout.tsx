@@ -16,7 +16,7 @@ export default function ClientLayout( { children }: { children: React.ReactNode 
         attribute="class"
         defaultTheme="system"
         enableSystem
-        disableTransitionOnChange      >
+        disableTransitionOnChange>
         <SoundProvider>
           <ErrorBoundary>
             <Header />
